@@ -12,7 +12,7 @@
   (get-in issue ["fields" field]))
 
 (defn get-issue-summary [issue]
-  (format "%s: %s - %s"
+  (format "%s: %s\n%s\n"
           (get issue "key")
           (get-issue-field issue "summary")
           (get-issue-field issue "description")))
@@ -43,8 +43,14 @@
   (let [config (get-config)
         query (get-project-query project)
         issues (search-issues config query)]
-    (for [issue issues]
-      (println (get-issue-summary issue)))))
+    ;; Can't seem to do the following with list comprehension
+    (loop [issue-list issues]
+      (let [head (first issue-list)]
+        (if (nil? head)
+          :done
+          (do
+            (println (get-issue-summary head))
+            (recur (rest issue-list))))))))
 
 (defn -main
   "I don't do a whole lot ... yet."

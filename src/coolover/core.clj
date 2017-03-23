@@ -12,20 +12,29 @@
 
 (def exec-name "coolover")
 
+(defn get-config []
+  (m/build-config (m/resource config-resource)))
+
 (defn get-issue-field [issue field]
   (get-in issue ["fields" field]))
 
+(defn get-browse-url [issue-key]
+  (format "%s/browse/%s" (get-in (get-config) [:service :url]) issue-key))
+
 (defn get-issue [issue]
-  (let [get-field #(get-issue-field issue %)]
-    {:title (get issue "key")
+  (let [get-field #(get-issue-field issue %)
+        issue-key (get issue "key")]
+    {:title issue-key
      :summary (get-field "summary")
-     :description (get-field "description")}))
+     :description (get-field "description")
+     :browse-url (get-browse-url issue-key)}))
 
 (defn format-issue [issue]
   (let [issue-map (get-issue issue)]
-    (format "%s: %s\n%s\n"
+    (format "%s: %s [%s]\n\n%s\n"
             (style (:title issue-map) :green :underline)
             (style (:summary issue-map) :yellow :underline)
+            (style (:browse-url issue-map) :magenta)
             (:description issue-map))))
 
 (defn get-search-body [query max-results]
@@ -52,9 +61,6 @@
      :body
      json/read-str
      (get "issues"))))
-
-(defn get-config []
-  (m/build-config (m/resource config-resource)))
 
 (defn get-basic-auth-pair [config]
   (map #(get-in config [:credentials %]) [:user :password]))

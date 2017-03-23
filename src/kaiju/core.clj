@@ -1,4 +1,4 @@
-(ns kaiju.core
+(ns coolover.core
   (:gen-class)
   (:require [clj-http.lite.client :as client])
   (:require [clojure.data.json :as json])
@@ -75,4 +75,4 @@
           (println project)))
       (if-not (nil? (get-in parsed-args [:options :project]))
         (list-issues (get-in parsed-args [:options :project]))
-        (println "usage: kaiju [list-projects] [-p <project-name]")))))
+        (println "usage: coolover [list-projects] [-p <project-name]")))))

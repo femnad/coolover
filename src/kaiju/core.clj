@@ -62,7 +62,7 @@
         query (get-project-query project)
         issues (search-issues config query)]
     (doseq [issue issues]
-      (println issues))))
+      (println (get-issue-summary issue)))))
 
 (def cli-options
   [["-p" "--project <project>" "project key"]])

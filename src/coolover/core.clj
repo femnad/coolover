@@ -44,13 +44,14 @@
 
 (defn search-issues [config query max-results]
   (let [search-url (get-url (get-in config [:service :url]) "search")
-        user (get-in config [:credentials :user])
-        password (get-in config [:credentials :password])]
-    (let [raw-issues (request search-url
-                              (get-search-body query max-results)
-                              :json
-                              [user password])]
-    (get (json/read-str (:body raw-issues)) "issues"))))
+        basic-auth (map #(get-in config [:credentials %]) [:user :password])
+        search-body (get-search-body query max-results)]
+    (->
+     search-url
+     (request search-body :json basic-auth)
+     :body
+     json/read-str
+     (get "issues"))))
 
 (defn get-config []
   (m/build-config (m/resource config-resource)))

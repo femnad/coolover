@@ -3,7 +3,8 @@
   (:require [clj-http.lite.client :as client])
   (:require [clojure.data.json :as json])
   (:require [maailma.core :as m])
-  (:require [clojure.tools.cli :refer [parse-opts]]))
+  (:require [clojure.tools.cli :refer [parse-opts]])
+  (:require [clansi :refer [style]]))
 
 (def config-resource "config.edn")
 
@@ -14,11 +15,18 @@
 (defn get-issue-field [issue field]
   (get-in issue ["fields" field]))
 
-(defn get-issue-summary [issue]
-  (format "%s: %s\n%s\n"
-          (get issue "key")
-          (get-issue-field issue "summary")
-          (get-issue-field issue "description")))
+(defn get-issue [issue]
+  (let [get-field #(get-issue-field issue %)]
+    {:title (get issue "key")
+     :summary (get-field "summary")
+     :description (get-field "description")}))
+
+(defn format-issue [issue]
+  (let [issue-map (get-issue issue)]
+    (format "%s: %s\n%s\n"
+            (style (:title issue-map) :green :underline)
+            (style (:summary issue-map) :yellow :underline)
+            (:description issue-map))))
 
 (defn get-search-body [query max-results]
   (json/write-str {:jql query :maxResults max-results}))
@@ -73,7 +81,7 @@
         query (get-query {"project" project} order-by)
         issues (search-issues config query)]
     (doseq [issue issues]
-      (println (get-issue-summary issue)))))
+      (println (format-issue issue)))))
 
 (def cli-options
   [["-p" "--project <project>" "project key"]

@@ -24,6 +24,14 @@
 (defn get-url [service-url endpoint]
   (format "%s/%s/%s" service-url api-suffix endpoint))
 
+(defn request
+  ([url body content-type basic-auth]
+   (client/post url {:body body
+                     :content-type content-type
+                     :basic-auth basic-auth})
+   ([url basic-auth]
+    (client/get url {:basic-auth basic-auth}))))
+
 (defn search-issues [config query]
   (let [search-url (get-url (get-in config [:service :url]) "search")
         user (get-in config [:credentials :user])
@@ -53,15 +61,8 @@
   (let [config (get-config)
         query (get-project-query project)
         issues (search-issues config query)]
-    ;; Can't seem to do the following with list comprehension
-    ;; Duh! `for` is list comprehension, `doseq` is repeated execution
-    (loop [issue-list issues]
-      (let [head (first issue-list)]
-        (if (nil? head)
-          :done
-          (do
-            (println (get-issue-summary head))
-            (recur (rest issue-list))))))))
+    (doseq [issue issues]
+      (println issues))))
 
 (def cli-options
   [["-p" "--project <project>" "project key"]])

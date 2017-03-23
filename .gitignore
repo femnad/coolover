@@ -2,3 +2,4 @@ target
 .lein-repl-history
 config.edn
 .nrepl-port
+contrib/coolover

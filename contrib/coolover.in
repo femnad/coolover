@@ -1,0 +1,5 @@
+#!/bin/bash
+JAR_PATH="#jar_path#"
+JAR_FILE="coolover-0.0.1-standalone.jar"
+
+java -jar "$JAR_PATH/$JAR_FILE" "$@"

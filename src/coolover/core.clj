@@ -42,14 +42,14 @@
    ([url basic-auth]
     (client/get url {:basic-auth basic-auth})))
 
-(defn search-issues [config query]
+(defn search-issues [config query max-results]
   (let [search-url (get-url (get-in config [:service :url]) "search")
         user (get-in config [:credentials :user])
         password (get-in config [:credentials :password])]
-    (let [raw-issues (client/post search-url
-                                  {:basic-auth [user password]
-                                   :body (get-search-body query 10)
-                                   :content-type :json})]
+    (let [raw-issues (request search-url
+                              (get-search-body query max-results)
+                              :json
+                              [user password])]
     (get (json/read-str (:body raw-issues)) "issues"))))
 
 (defn get-config []
@@ -76,17 +76,19 @@
           json/read-str)]
       (map #(format "%s - %s" (get % "name") (get % "key")) projects))))
 
-(defn list-issues [project order-by]
+(defn list-issues [project order-by max-results]
   (let [config (get-config)
         query (get-query {"project" project} order-by)
-        issues (search-issues config query)]
+        issues (search-issues config query max-results)]
     (doseq [issue issues]
       (println (format-issue issue)))))
 
 (def cli-options
   [["-p" "--project <project>" "project key"]
    ["-o" "--order-by <field>" "order by field"
-    :default "created"]])
+    :default "created"]
+   ["-n" "--number-of-results <number>" "maximum number of results"
+    :default 10]])
 
 (defn get-usage [parsed-args]
   (format "usage: %s [options] [list-projects]\n%s" exec-name (:summary parsed-args)))
@@ -99,5 +101,7 @@
         (doseq [project projects]
           (println project)))
       (if-not (nil? (get-option :project))
-        (list-issues (get-option :project) (get-option :order-by))
+        (list-issues (get-option :project)
+                     (get-option :order-by)
+                     (get-option :number-of-results))
         (println (get-usage parsed-args))))))

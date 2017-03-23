@@ -2,7 +2,8 @@
   (:gen-class)
   (:require [clj-http.lite.client :as client])
   (:require [clojure.data.json :as json])
-  (:require [maailma.core :as m]))
+  (:require [maailma.core :as m])
+  (:require [clojure.tools.cli :refer [parse-opts]]))
 
 (def config-resource "config.edn")
 
@@ -39,11 +40,21 @@
 (defn get-project-query [project-name]
   (format "project = %s" project-name))
 
+(defn get-all-projects [config]
+  (let [search-url (get-url (get-in config [:service :url]) "project")]
+    (let [projects
+      (-> search-url
+          client/get
+          :body
+          json/read-str)]
+      (map #(format "%s - %s" (get % "name") (get % "key")) projects))))
+
 (defn list-issues [project]
   (let [config (get-config)
         query (get-project-query project)
         issues (search-issues config query)]
     ;; Can't seem to do the following with list comprehension
+    ;; Duh! `for` is list comprehension, `doseq` is repeated execution
     (loop [issue-list issues]
       (let [head (first issue-list)]
         (if (nil? head)
@@ -52,9 +63,15 @@
             (println (get-issue-summary head))
             (recur (rest issue-list))))))))
 
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (if (= (count args) 1)
-    (list-issues (first args))
-    (println "usage: kaiju <project-name>")))
+(def cli-options
+  [["-p" "--project <project>" "project key"]])
+
+(defn -main [& args]
+  (let [parsed-args (parse-opts args cli-options)]
+    (if (= (first (:arguments parsed-args)) "list-projects")
+      (let [projects (get-all-projects (get-config))]
+        (doseq [project projects]
+          (println project)))
+      (if-not (nil? (get-in parsed-args [:options :project]))
+        (list-issues (get-in parsed-args [:options :project]))
+        (println "usage: kaiju [list-projects] [-p <project-name]")))))

@@ -28,9 +28,9 @@
   ([url body content-type basic-auth]
    (client/post url {:body body
                      :content-type content-type
-                     :basic-auth basic-auth})
+                     :basic-auth basic-auth}))
    ([url basic-auth]
-    (client/get url {:basic-auth basic-auth}))))
+    (client/get url {:basic-auth basic-auth})))
 
 (defn search-issues [config query]
   (let [search-url (get-url (get-in config [:service :url]) "search")
@@ -45,6 +45,9 @@
 (defn get-config []
   (m/build-config (m/resource config-resource)))
 
+(defn get-basic-auth-pair [config]
+  (map #(get-in config [:credentials %]) [:user :password]))
+
 (defn get-project-query [project-name]
   (format "project = %s" project-name))
 
@@ -52,7 +55,7 @@
   (let [search-url (get-url (get-in config [:service :url]) "project")]
     (let [projects
       (-> search-url
-          client/get
+          (request (get-basic-auth-pair config))
           :body
           json/read-str)]
       (map #(format "%s - %s" (get % "name") (get % "key")) projects))))

@@ -9,6 +9,8 @@
 
 (def api-suffix "rest/api/2")
 
+(def exec-name "coolover")
+
 (defn get-issue-field [issue field]
   (get-in issue ["fields" field]))
 
@@ -48,8 +50,14 @@
 (defn get-basic-auth-pair [config]
   (map #(get-in config [:credentials %]) [:user :password]))
 
-(defn get-project-query [project-name]
-  (format "project = %s" project-name))
+(defn get-query [query-map order-by]
+  (str (clojure.string/join
+      " and " (map
+               #(format "%s = %s"
+                        (first %)
+                        (second %))
+               (into-array query-map)))
+     " order by " order-by))
 
 (defn get-all-projects [config]
   (let [search-url (get-url (get-in config [:service :url]) "project")]
@@ -60,22 +68,28 @@
           json/read-str)]
       (map #(format "%s - %s" (get % "name") (get % "key")) projects))))
 
-(defn list-issues [project]
+(defn list-issues [project order-by]
   (let [config (get-config)
-        query (get-project-query project)
+        query (get-query {"project" project} order-by)
         issues (search-issues config query)]
     (doseq [issue issues]
       (println (get-issue-summary issue)))))
 
 (def cli-options
-  [["-p" "--project <project>" "project key"]])
+  [["-p" "--project <project>" "project key"]
+   ["-o" "--order-by <field>" "order by field"
+    :default "created"]])
+
+(defn get-usage [parsed-args]
+  (format "usage: %s [options] [list-projects]\n%s" exec-name (:summary parsed-args)))
 
 (defn -main [& args]
-  (let [parsed-args (parse-opts args cli-options)]
+  (let [parsed-args (parse-opts args cli-options)
+        get-option #(get-in parsed-args [:options %])]
     (if (= (first (:arguments parsed-args)) "list-projects")
       (let [projects (get-all-projects (get-config))]
         (doseq [project projects]
           (println project)))
-      (if-not (nil? (get-in parsed-args [:options :project]))
-        (list-issues (get-in parsed-args [:options :project]))
-        (println "usage: coolover [list-projects] [-p <project-name]")))))
+      (if-not (nil? (get-option :project))
+        (list-issues (get-option :project) (get-option :order-by))
+        (println (get-usage parsed-args))))))

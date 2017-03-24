@@ -52,6 +52,9 @@
    ([url basic-auth]
     (client/get url {:basic-auth basic-auth})))
 
+(defn get-basic-auth-pair [config]
+  (map #(get-in config [:credentials %]) [:user :password]))
+
 (defn- get-resource [resource resource-id]
   (let [resource-url (format "%s/%s" (get-url "issue") resource-id)]
     (->
@@ -61,7 +64,7 @@
      json/read-str)))
 
 (defn show-issue [issue-key]
-  (get-issue (get-resource "issue" issue-key)))
+  (println (format-issue (get-resource "issue" issue-key))))
 
 (defn search-issues [config query max-results]
   (let [search-url (get-url "search")
@@ -74,9 +77,6 @@
      json/read-str
      (get "issues"))))
 
-(defn get-basic-auth-pair [config]
-  (map #(get-in config [:credentials %]) [:user :password]))
-
 (defn get-query [query-map order-by]
   (str (clojure.string/join
       " and " (map
@@ -86,14 +86,18 @@
                (into-array query-map)))
      " order by " order-by))
 
-(defn get-all-projects [config]
+(defn format-projects []
   (let [search-url (get-url "project")]
     (let [projects
       (-> search-url
-          (request (get-basic-auth-pair config))
+          (request (get-basic-auth-pair (get-config)))
           :body
           json/read-str)]
       (map #(format "%s - %s" (get % "name") (get % "key")) projects))))
+
+(defn list-projects []
+  (doseq [project (format-projects)]
+    (println project)))
 
 (defn list-issues [project order-by max-results]
   (let [config (get-config)
@@ -106,21 +110,52 @@
   [["-p" "--project <project>" "project key"]
    ["-o" "--order-by <field>" "order by field"
     :default "created"]
-   ["-n" "--number-of-results <number>" "maximum number of results"
-    :default 10]])
+   ["-m" "--max-results <number>" "maximum number of results"
+    :default 10]
+   ["-i" "--issue-key <issue-key>" "issue key"]])
 
-(defn get-usage [parsed-args]
-  (format "usage: %s [options] [list-projects]\n%s" exec-name (:summary parsed-args)))
+(def modes
+  {:list-projects {:fn list-projects :args []}
+   :list-issues {:fn list-issues :args [:project :order-by :max-results]}
+   :show-issue {:fn show-issue :args [:issue-key]}})
+
+(defn get-mode [mode-name]
+  ((keyword mode-name) modes))
+
+(defn- get-mode-from-parsed-args [parsed-args]
+  (->
+   parsed-args
+   :arguments
+   first
+   get-mode))
+
+(defn- parse-args [args]
+  (parse-opts args cli-options))
+
+(defn get-usage [args]
+  (format "usage: %s [options] [list-projects|list-issues|show-issue]\n%s"
+          exec-name
+          (:summary (parse-args args))))
+
+(defn- get-mode-from-args [parsed-args]
+  (get-mode-from-parsed-args parsed-args))
+
+(defn- get-selected-mode [args]
+  (let [parsed-args (parse-args args)
+        mode (get-mode-from-parsed-args parsed-args)
+        mode-fn (:fn mode)
+        formal-args (:args mode)
+        actual-args (map #(% (:options parsed-args)) formal-args)]
+    (list mode-fn actual-args)))
+
+(defn- nil-in-args? [mode]
+  (not (not-any? nil? (last mode))))
+
+(defn run-mode [mode]
+  (apply apply mode))
 
 (defn -main [& args]
-  (let [parsed-args (parse-opts args cli-options)
-        get-option #(get-in parsed-args [:options %])]
-    (if (= (first (:arguments parsed-args)) "list-projects")
-      (let [projects (get-all-projects (get-config))]
-        (doseq [project projects]
-          (println project)))
-      (if-not (nil? (get-option :project))
-        (list-issues (get-option :project)
-                     (get-option :order-by)
-                     (get-option :number-of-results))
-        (println (get-usage parsed-args))))))
+  (let [mode (get-selected-mode args)]
+    (if (nil-in-args? mode)
+      (println (get-usage args))
+      (run-mode mode))))

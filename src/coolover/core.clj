@@ -6,9 +6,12 @@
   (:require [clojure.tools.cli :refer [parse-opts]])
   (:require [clansi :refer [style]]))
 
-(def config-resource "config.edn")
 
 (def api-suffix "rest/api/2")
+
+(def config-resource "config.edn")
+
+(def default-content-type :json)
 
 (def exec-name "coolover")
 
@@ -44,22 +47,36 @@
   (let [service-url (get-in (get-config) [:service :url])]
     (format "%s/%s/%s" service-url api-suffix endpoint)))
 
-(defn request
-  ([url body content-type basic-auth]
-   (client/post url {:body body
-                     :content-type content-type
-                     :basic-auth basic-auth}))
-   ([url basic-auth]
-    (client/get url {:basic-auth basic-auth})))
+(defn get-basic-auth-header []
+  {:auth (map #(get-in (get-config) [:credentials %]) [:user :password])})
 
-(defn get-basic-auth-pair [config]
-  (map #(get-in config [:credentials %]) [:user :password]))
+(defn- has-auth []
+  (contains? (get-config) :credentials))
+
+(defn- build-args-with-headers [url headers]
+  (if (has-auth)
+    (list url (merge headers (get-basic-auth-header)))
+    (list url headers)))
+
+(defn- build-args [url]
+  (if (has-auth)
+    (list url (get-basic-auth-header))
+    (list url)))
+
+(defn request
+  ([url body]
+   (apply client/post
+         (build-args-with-headers url
+                      {:body body
+                       :content-type default-content-type})))
+   ([url]
+    (apply client/get (build-args url))))
 
 (defn- get-resource [resource resource-id]
   (let [resource-url (format "%s/%s" (get-url "issue") resource-id)]
     (->
      resource-url
-     (request (get-basic-auth-pair (get-config)))
+     request
      :body
      json/read-str)))
 
@@ -72,7 +89,7 @@
         search-body (get-search-body query max-results)]
     (->
      search-url
-     (request search-body :json basic-auth)
+     (request search-body)
      :body
      json/read-str
      (get "issues"))))
@@ -90,7 +107,7 @@
   (let [search-url (get-url "project")]
     (let [projects
       (-> search-url
-          (request (get-basic-auth-pair (get-config)))
+          request
           :body
           json/read-str)]
       (map #(format "%s - %s" (get % "name") (get % "key")) projects))))

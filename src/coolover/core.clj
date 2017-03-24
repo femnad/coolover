@@ -40,8 +40,9 @@
 (defn get-search-body [query max-results]
   (json/write-str {:jql query :maxResults max-results}))
 
-(defn get-url [service-url endpoint]
-  (format "%s/%s/%s" service-url api-suffix endpoint))
+(defn get-url [endpoint]
+  (let [service-url (get-in (get-config) [:service :url])]
+    (format "%s/%s/%s" service-url api-suffix endpoint)))
 
 (defn request
   ([url body content-type basic-auth]
@@ -51,8 +52,19 @@
    ([url basic-auth]
     (client/get url {:basic-auth basic-auth})))
 
+(defn- get-resource [resource resource-id]
+  (let [resource-url (format "%s/%s" (get-url "issue") resource-id)]
+    (->
+     resource-url
+     (request (get-basic-auth-pair (get-config)))
+     :body
+     json/read-str)))
+
+(defn show-issue [issue-key]
+  (get-issue (get-resource "issue" issue-key)))
+
 (defn search-issues [config query max-results]
-  (let [search-url (get-url (get-in config [:service :url]) "search")
+  (let [search-url (get-url "search")
         basic-auth (map #(get-in config [:credentials %]) [:user :password])
         search-body (get-search-body query max-results)]
     (->
@@ -75,7 +87,7 @@
      " order by " order-by))
 
 (defn get-all-projects [config]
-  (let [search-url (get-url (get-in config [:service :url]) "project")]
+  (let [search-url (get-url "project")]
     (let [projects
       (-> search-url
           (request (get-basic-auth-pair config))

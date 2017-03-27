@@ -6,7 +6,6 @@
   (:require [clojure.tools.cli :refer [parse-opts]])
   (:require [clansi :refer [style]]))
 
-
 (def api-suffix "rest/api/2")
 
 (def config-resource "config.edn")
@@ -30,17 +29,26 @@
     {:title issue-key
      :summary (get-field "summary")
      :description (get-field "description")
+     :created (get-field "created")
      :updated (get-field "updated")
      :browse-url (get-browse-url issue-key)}))
 
+(defn- style-items [container item-style-pairs]
+  (map #(style ((first %) container) (second %)) item-style-pairs))
+
+(defn- style-issue [issue-map]
+  (style-items issue-map
+               {:title :green
+                :summary :yellow
+                :browse-url :magenta
+                :created :cyan
+                :updated :cyan
+                :description :normal}))
+
 (defn format-issue [issue]
-  (let [issue-map (get-issue issue)]
-    (format "%s: %s [%s]\n<%s>\n%s\n"
-            (style (:title issue-map) :green)
-            (style (:summary issue-map) :yellow)
-            (style (:browse-url issue-map) :magenta)
-            (style (:updated issue-map) :cyan)
-            (:description issue-map))))
+  (let [issue-map (get-issue issue)
+        styled-issue (style-issue issue-map)]
+    (apply format "%s: %s [%s]\n<%s - %s>\n%s\n" styled-issue)))
 
 (defn get-search-body [query max-results]
   (json/write-str {:jql query :maxResults max-results}))

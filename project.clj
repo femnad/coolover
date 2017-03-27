@@ -4,7 +4,8 @@
                  [clj-http-lite "0.3.0"]
                  [metosin/maailma "0.2.0"]
                  [org.clojure/tools.cli "0.3.5"]
-                 [clansi "1.0.0"]]
+                 [clansi "1.0.0"]
+                 [clj-time "0.13.0"]]
   :main ^:skip-aot coolover.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

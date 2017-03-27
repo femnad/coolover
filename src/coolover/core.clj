@@ -4,7 +4,8 @@
   (:require [clojure.data.json :as json])
   (:require [maailma.core :as m])
   (:require [clojure.tools.cli :refer [parse-opts]])
-  (:require [clansi :refer [style]]))
+  (:require [clansi :refer [style]])
+  (:require [clj-time.format :as f]))
 
 (def api-suffix "rest/api/2")
 
@@ -23,14 +24,17 @@
 (defn get-browse-url [issue-key]
   (format "%s/browse/%s" (get-in (get-config) [:service :url]) issue-key))
 
+(defn- format-date [a-date]
+  (f/unparse (f/formatters :mysql) (f/parse (f/formatters :date-time) a-date)))
+
 (defn get-issue [issue]
   (let [get-field #(get-issue-field issue %)
         issue-key (get issue "key")]
     {:title issue-key
      :summary (get-field "summary")
      :description (get-field "description")
-     :created (get-field "created")
-     :updated (get-field "updated")
+     :created (format-date (get-field "created"))
+     :updated (format-date (get-field "updated"))
      :browse-url (get-browse-url issue-key)}))
 
 (defn- style-items [container item-style-pairs]

@@ -159,30 +159,33 @@
 (defn- parse-args [args]
   (parse-opts args cli-options))
 
-(defn get-usage [args]
-  (format "usage: %s [options] [list-projects|list-issues|show-issue]\n%s"
-          exec-name
-          (:summary (parse-args args))))
+(defn get-usage [parsed-args]
+  (let [error-message (clojure.string/join "" (:errors parsed-args))]
+    (format "usage: %s <modes> <options>\n\nModes:\n%s\n\nOptions:\n%s\n%s"
+            exec-name
+            (clojure.string/join " | " (map name (keys modes)))
+            (:summary parsed-args)
+            error-message)))
 
-(defn- get-mode-from-args [parsed-args]
-  (get-mode-from-parsed-args parsed-args))
-
-(defn- get-selected-mode [args]
-  (let [parsed-args (parse-args args)
-        mode (get-mode-from-parsed-args parsed-args)
+(defn- get-selected-mode [parsed-args]
+  (let [mode (get-mode-from-parsed-args parsed-args)
         mode-fn (:fn mode)
         formal-args (:args mode)
         actual-args (map #(% (:options parsed-args)) formal-args)]
     (list mode-fn actual-args)))
 
-(defn- nil-in-args? [mode]
-  (not (not-any? nil? (last mode))))
+(defn- invalid-mode? [mode]
+  (not (not-any? nil? mode)))
 
 (defn run-mode [mode]
   (apply apply mode))
 
 (defn -main [& args]
-  (let [mode (get-selected-mode args)]
-    (if (nil-in-args? mode)
-      (println (get-usage args))
-      (run-mode mode))))
+  (let [parsed-args (parse-args args)]
+    (if (or (= (count args) 0)
+            (:errors parsed-args))
+      (println (get-usage parsed-args))
+      (let [mode (get-selected-mode parsed-args)]
+        (if (invalid-mode? mode)
+          (println (get-usage parsed-args))
+          (run-mode mode))))))

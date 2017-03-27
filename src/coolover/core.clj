@@ -48,7 +48,7 @@
     (format "%s/%s/%s" service-url api-suffix endpoint)))
 
 (defn get-basic-auth-header []
-  {:auth (map #(get-in (get-config) [:credentials %]) [:user :password])})
+  {:basic-auth (map #(get-in (get-config) [:credentials %]) [:user :password])})
 
 (defn- has-auth []
   (contains? (get-config) :credentials))

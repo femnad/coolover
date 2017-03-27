@@ -30,14 +30,16 @@
     {:title issue-key
      :summary (get-field "summary")
      :description (get-field "description")
+     :updated (get-field "updated")
      :browse-url (get-browse-url issue-key)}))
 
 (defn format-issue [issue]
   (let [issue-map (get-issue issue)]
-    (format "%s: %s [%s]\n\n%s\n"
-            (style (:title issue-map) :green :underline)
-            (style (:summary issue-map) :yellow :underline)
+    (format "%s: %s [%s]\n<%s>\n%s\n"
+            (style (:title issue-map) :green)
+            (style (:summary issue-map) :yellow)
             (style (:browse-url issue-map) :magenta)
+            (style (:updated issue-map) :cyan)
             (:description issue-map))))
 
 (defn get-search-body [query max-results]

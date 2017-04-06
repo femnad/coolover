@@ -27,7 +27,7 @@
 (defn- format-date [a-date]
   (f/unparse (f/formatters :mysql) (f/parse (f/formatters :date-time) a-date)))
 
-(defn get-issue [issue]
+(defn get-issue-map [issue]
   (let [get-field #(get-issue-field issue %)
         issue-key (get issue "key")]
     {:title issue-key
@@ -50,7 +50,7 @@
                 :description :normal}))
 
 (defn format-issue [issue]
-  (let [issue-map (get-issue issue)
+  (let [issue-map (get-issue-map issue)
         styled-issue (style-issue issue-map)]
     (apply format "%s: %s [%s]\n<%s - %s>\n%s\n" styled-issue)))
 
@@ -87,15 +87,35 @@
     (apply client/get (build-args url))))
 
 (defn- get-resource [resource resource-id]
-  (let [resource-url (format "%s/%s" (get-url "issue") resource-id)]
-    (->
-     resource-url
-     request
-     :body
-     json/read-str)))
+  (let [resource-endpoint
+        (-> resource
+            name
+            get-url)
+        resource-url (format "%s/%s" resource-endpoint resource-id)]
+    (-> resource-url
+        request
+        :body
+        json/read-str)))
+
+(defn- get-issue [issue-id]
+  (get-resource "issue" issue-id))
 
 (defn show-issue [issue-key]
   (println (format-issue (get-resource "issue" issue-key))))
+
+(defn- get-issue-attachments [issue]
+  (->> (get-in issue ["fields" "attachment"])
+       (map #(get % "content"))))
+
+(defn- download-attachment [attachment-link]
+  (:body (request attachment-link)))
+
+(defn- download-issue-attachment [issue-id]
+  (let [issue-attachments
+        (-> issue-id
+            get-issue
+            get-issue-attachments)]
+    (map download-attachment issues-attachments)))
 
 (defn search-issues [config query max-results]
   (let [search-url (get-url "search")
@@ -130,10 +150,13 @@
   (doseq [project (format-projects)]
     (println project)))
 
-(defn list-issues [project order-by max-results]
+(defn- get-issues [project order-by max-results]
   (let [config (get-config)
-        query (get-query {"project" project} order-by)
-        issues (search-issues config query max-results)]
+        query (get-query {"project" project} order-by)]
+        (search-issues config query max-results)))
+
+(defn list-issues [project order-by max-results]
+  (let [issues (get-issues project order-by max-results)]
     (doseq [issue issues]
       (println (format-issue issue)))))
 

@@ -5,7 +5,8 @@
   (:require [maailma.core :as m])
   (:require [clojure.tools.cli :refer [parse-opts]])
   (:require [clansi :refer [style]])
-  (:require [clj-time.format :as f]))
+  (:require [clj-time.format :as f])
+  (:require [clojure.string :as s]))
 
 (def api-suffix "rest/api/2")
 
@@ -115,7 +116,24 @@
         (-> issue-id
             get-issue
             get-issue-attachments)]
-    (map download-attachment issues-attachments)))
+    (map download-attachment issue-attachments)))
+
+(defn basename [url]
+  (apply str (drop (inc (s/last-index-of url "/")) url)))
+
+(defn- save-attachment [link path-prefix]
+  (spit (format "%s/%s" path-prefix (basename link))
+        (download-attachment link)))
+
+(defn download-attachments-of-issues [issues path-prefix]
+  (let [attachment-links (->> issues
+                              (map #(get % "key"))
+                              (map #(get-issue %))
+                              (map #(get-issue-attachments %))
+                              (filter #(not (empty? %)))
+                              flatten)]
+    (doseq [link attachment-links]
+      (save-attachment link path-prefix))))
 
 (defn search-issues [config query max-results]
   (let [search-url (get-url "search")
@@ -129,7 +147,7 @@
      (get "issues"))))
 
 (defn get-query [query-map order-by]
-  (str (clojure.string/join
+  (str (s/join
       " and " (map
                #(format "%s = %s"
                         (first %)
@@ -187,10 +205,10 @@
   (parse-opts args cli-options))
 
 (defn get-usage [parsed-args]
-  (let [error-message (clojure.string/join "" (:errors parsed-args))]
+  (let [error-message (s/join "" (:errors parsed-args))]
     (format "usage: %s <modes> <options>\n\nModes:\n%s\n\nOptions:\n%s\n%s"
             exec-name
-            (clojure.string/join " | " (map name (keys modes)))
+            (s/join " | " (map name (keys modes)))
             (:summary parsed-args)
             error-message)))
 
@@ -202,7 +220,7 @@
     (list mode-fn actual-args)))
 
 (defn- invalid-mode? [mode]
-  (not (not-any? nil? mode)))
+  (some nil? mode))
 
 (defn run-mode [mode]
   (apply apply mode))

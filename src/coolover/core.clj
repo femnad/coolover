@@ -45,15 +45,15 @@
   (style-items issue-map
                {:title :green
                 :summary :yellow
-                :browse-url :magenta
                 :created :cyan
                 :updated :cyan
+                :browse-url :magenta
                 :description :normal}))
 
 (defn format-issue [issue]
   (let [issue-map (get-issue-map issue)
         styled-issue (style-issue issue-map)]
-    (apply format "%s: %s [%s]\n<%s - %s>\n%s\n" styled-issue)))
+    (apply format "%s: %s <%s - %s>\n[%s]\n%s\n" styled-issue)))
 
 (defn get-search-body [query max-results]
   (json/write-str {:jql query :maxResults max-results}))

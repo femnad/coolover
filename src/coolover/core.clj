@@ -19,6 +19,14 @@
 (defn get-config []
   (m/build-config (m/resource config-resource)))
 
+(defn- eval-command-to-get-password [command]
+                 (-> command
+                     (s/split , #" ")
+                     (#(apply clojure.java.shell/sh %))
+                     :out
+                     (s/split , #"\n")
+                     first))
+
 (defn get-issue-field [issue field]
   (get-in issue ["fields" field]))
 
@@ -61,6 +69,13 @@
 (defn get-url [endpoint]
   (let [service-url (get-in (get-config) [:service :url])]
     (format "%s/%s/%s" service-url api-suffix endpoint)))
+
+(defn- get-auth-pair-from-config [config]
+  (let [creds (:credentials config)]
+    (if (contains? creds :password)
+      (map #(% creds) [:user :password])
+      (list (:user creds)
+            (eval-command-to-get-password (:password-eval creds))))))
 
 (defn get-basic-auth-header []
   {:basic-auth (map #(get-in (get-config) [:credentials %]) [:user :password])})
@@ -168,13 +183,12 @@
   (doseq [project (format-projects)]
     (println project)))
 
-(defn- get-issues [project order-by max-results]
-  (let [config (get-config)
-        query (get-query {"project" project} order-by)]
+(defn- get-issues [config project order-by max-results]
+  (let [query (get-query {"project" project} order-by)]
         (search-issues config query max-results)))
 
-(defn list-issues [project order-by max-results]
-  (let [issues (get-issues project order-by max-results)]
+(defn list-issues [config project order-by max-results]
+  (let [issues (get-issues config project order-by max-results)]
     (doseq [issue issues]
       (println (format-issue issue)))))
 
@@ -192,7 +206,9 @@
    :show-issue {:fn show-issue :args [:issue-key]}})
 
 (defn get-mode [mode-name]
-  ((keyword mode-name) modes))
+  (-> mode-name
+      keyword
+      (, modes)))
 
 (defn- get-mode-from-parsed-args [parsed-args]
   (->
@@ -222,15 +238,19 @@
 (defn- invalid-mode? [mode]
   (some nil? mode))
 
-(defn run-mode [mode]
-  (apply apply mode))
+(defn run-mode [mode config]
+  (let [mode-fn (:fn mode)
+        args (:args mode)]
+    (-> config
+        (mode-fn args))))
 
 (defn -main [& args]
-  (let [parsed-args (parse-args args)]
+  (let [parsed-args (parse-args args)
+        config (get-config)]
     (if (or (= (count args) 0)
             (:errors parsed-args))
       (println (get-usage parsed-args))
       (let [mode (get-selected-mode parsed-args)]
         (if (invalid-mode? mode)
           (println (get-usage parsed-args))
-          (run-mode mode))))))
+          (run-mode mode config))))))

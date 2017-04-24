@@ -1,3 +1,4 @@
 {:credentials {:user "<username>"
-               :password "<password>"}
+               :password "<password>"
+               :password-eval "<password-eval-command>"}
  :service {:url "<base-url>"}}

@@ -240,11 +240,8 @@
 (defn- invalid-mode? [mode]
   (some nil? mode))
 
-(defn run-mode [mode config]
-  (let [mode-fn (:fn mode)
-        args (:args mode)]
-    (-> config
-        (mode-fn args))))
+(defn run-mode [[mode args] config]
+  (apply mode (cons config args)))
 
 (defn -main [& args]
   (let [parsed-args (parse-args args)

@@ -237,19 +237,22 @@
         actual-args (map #(% (:options parsed-args)) formal-args)]
     (list mode-fn actual-args)))
 
-(defn- invalid-mode? [mode]
-  (some nil? mode))
+(defn- valid-mode? [mode]
+  (not-any? nil? mode))
 
 (defn run-mode [[mode args] config]
   (apply mode (cons config args)))
 
+(defn- legal-args? [args parsed-args]
+  (not (or (= (count args) 0)
+            (:errors parsed-args))))
+
 (defn -main [& args]
   (let [parsed-args (parse-args args)
         config (get-config)]
-    (if (or (= (count args) 0)
-            (:errors parsed-args))
-      (println (get-usage parsed-args))
+    (if (legal-args? args parsed-args)
       (let [mode (get-selected-mode parsed-args)]
-        (if (invalid-mode? mode)
-          (println (get-usage parsed-args))
-          (run-mode mode config))))))
+        (if (valid-mode? mode)
+          (run-mode mode config)
+          (println (get-usage parsed-args))))
+      (println (get-usage parsed-args)))))

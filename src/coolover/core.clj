@@ -6,7 +6,8 @@
   (:require [clojure.tools.cli :refer [parse-opts]])
   (:require [clansi :refer [style]])
   (:require [clj-time.format :as f])
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s])
+  (:use [clojure.java.shell :only [sh]]))
 
 (def api-suffix "rest/api/2")
 
@@ -66,8 +67,8 @@
 (defn get-search-body [query max-results]
   (json/write-str {:jql query :maxResults max-results}))
 
-(defn get-url [endpoint]
-  (let [service-url (get-in (get-config) [:service :url])]
+(defn get-url [config endpoint]
+  (let [service-url (get-in config [:service :url])]
     (format "%s/%s/%s" service-url api-suffix endpoint)))
 
 (defn- get-auth-pair-from-config [config]
@@ -77,47 +78,48 @@
       (list (:user creds)
             (eval-command-to-get-password (:password-eval creds))))))
 
-(defn get-basic-auth-header []
-  {:basic-auth (map #(get-in (get-config) [:credentials %]) [:user :password])})
+(defn get-basic-auth-header [config]
+  {:basic-auth (get-auth-pair-from-config config)})
 
-(defn- has-auth []
-  (contains? (get-config) :credentials))
+(defn- has-auth [config]
+  (contains? config :credentials))
 
-(defn- build-args-with-headers [url headers]
-  (if (has-auth)
-    (list url (merge headers (get-basic-auth-header)))
+(defn- build-args-with-headers [url headers config]
+  (if (has-auth config)
+    (list url (merge headers (get-basic-auth-header config)))
     (list url headers)))
 
-(defn- build-args [url]
-  (if (has-auth)
-    (list url (get-basic-auth-header))
+(defn- build-args [url config]
+  (if (has-auth config)
+    (list url (get-basic-auth-header config))
     (list url)))
 
 (defn request
-  ([url body]
+  ([url body config]
    (apply client/post
          (build-args-with-headers url
                       {:body body
-                       :content-type default-content-type})))
-   ([url]
-    (apply client/get (build-args url))))
+                       :content-type default-content-type}
+                      config)))
+   ([url config]
+    (apply client/get (build-args url config))))
 
-(defn- get-resource [resource resource-id]
+(defn- get-resource [resource resource-id config]
   (let [resource-endpoint
-        (-> resource
+        (->> resource
             name
-            get-url)
+            (get-url config ,))
         resource-url (format "%s/%s" resource-endpoint resource-id)]
     (-> resource-url
-        request
+        (request config)
         :body
         json/read-str)))
 
-(defn- get-issue [issue-id]
-  (get-resource "issue" issue-id))
+(defn- get-issue [issue-id config]
+  (get-resource "issue" issue-id config))
 
-(defn show-issue [issue-key]
-  (println (format-issue (get-resource "issue" issue-key))))
+(defn show-issue [config issue-key]
+  (println (format-issue (get-issue issue-key config))))
 
 (defn- get-issue-attachments [issue]
   (->> (get-in issue ["fields" "attachment"])
@@ -151,12 +153,12 @@
       (save-attachment link path-prefix))))
 
 (defn search-issues [config query max-results]
-  (let [search-url (get-url "search")
+  (let [search-url (get-url config "search")
         basic-auth (map #(get-in config [:credentials %]) [:user :password])
         search-body (get-search-body query max-results)]
     (->
      search-url
-     (request search-body)
+     (request , search-body config)
      :body
      json/read-str
      (get "issues"))))
@@ -170,17 +172,17 @@
                (into-array query-map)))
      " order by " order-by))
 
-(defn format-projects []
-  (let [search-url (get-url "project")]
+(defn format-projects [config]
+  (let [search-url (get-url config "project")]
     (let [projects
       (-> search-url
-          request
+          (request config)
           :body
           json/read-str)]
       (map #(format "%s - %s" (get % "name") (get % "key")) projects))))
 
-(defn list-projects []
-  (doseq [project (format-projects)]
+(defn list-projects [config]
+  (doseq [project (format-projects config)]
     (println project)))
 
 (defn- get-issues [config project order-by max-results]

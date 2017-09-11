@@ -12,15 +12,13 @@
    [:browse-url "[%s]\n"]
    [:description "%s\n"]])
 
+(defn- get-necessary-tokens [fields-in-use]
+  (filter #(contains? fields-in-use (first %)) tokens))
+
 (defn get-style-format-str [a-map]
-  (loop [remaining tokens
-         acc-seq []]
-    (if (empty? remaining)
-      (apply str acc-seq)
-      (let [cur-pair (first remaining)
-            key-str (first cur-pair)
-            fmt-str (last cur-pair)]
-        (if (contains? a-map key-str)
-          (recur (rest remaining)
-                 (conj acc-seq fmt-str))
-          (recur (rest remaining) acc-seq))))))
+  (->> a-map
+      keys
+      set
+      get-necessary-tokens
+      (map #(last %) ,)
+      (apply str ,)))

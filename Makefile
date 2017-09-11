@@ -8,7 +8,7 @@ link:
 	ln -fs $(shell pwd)/contrib/coolover $(linkfile)
 	chmod +x $(linkfile)
 
-target/uberjar/coolover-$(version)-standalone.jar: src/coolover/core.clj
+target/uberjar/coolover-$(version)-standalone.jar: src/coolover/core.clj src/coolover/format_issue.clj
 	lein uberjar
 
 jar: target/uberjar/coolover-$(version)-standalone.jar

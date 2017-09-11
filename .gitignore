@@ -3,3 +3,4 @@ target
 config.edn
 .nrepl-port
 contrib/coolover
+.lein-failures

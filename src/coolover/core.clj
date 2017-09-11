@@ -7,7 +7,8 @@
   (:require [clansi :refer [style]])
   (:require [clj-time.format :as f])
   (:require [clojure.string :as s])
-  (:use [clojure.java.shell :only [sh]]))
+  (:use [clojure.java.shell :only [sh]])
+  (:require [coolover.format-issue]))
 
 (def api-suffix "rest/api/2")
 
@@ -42,27 +43,39 @@
         issue-key (get issue "key")]
     {:title issue-key
      :summary (get-field "summary")
-     :description (get-field "description")
      :created (format-date (get-field "created"))
      :updated (format-date (get-field "updated"))
+     :description (get-field "description")
      :browse-url (get-browse-url issue-key)}))
 
-(defn- style-items [container item-style-pairs]
-  (map #(style ((first %) container) (second %)) item-style-pairs))
-
-(defn- style-issue [issue-map]
-  (style-items issue-map
-               {:title :green
+(def stylings {:title :green
                 :summary :yellow
                 :created :cyan
                 :updated :cyan
                 :browse-url :magenta
-                :description :normal}))
+               :description :normal})
+
+(defn- style-items [container]
+  (let [required-stylings (select-keys stylings (keys container))]
+    (map #(style ((first %) container) (second %)) required-stylings)))
+
+(defn- maybe-drop-updated [issue-map]
+  (let [updated (:updated issue-map)
+        created (:created issue-map)]
+    (if (= updated created)
+      (dissoc issue-map :updated)
+      issue-map)))
+
+(defn- style-issue [style-map issue-map]
+  (let [style-format-str (coolover.format-issue/get-style-format-str issue-map)]
+    (apply format style-format-str style-map)))
 
 (defn format-issue [issue]
-  (let [issue-map (get-issue-map issue)
-        styled-issue (style-issue issue-map)]
-    (apply format "%s: %s <%s - %s>\n[%s]\n%s\n" styled-issue)))
+  (let [issue-map (-> issue
+                      get-issue-map
+                      maybe-drop-updated)
+        styled-items (style-items issue-map)]
+    (style-issue styled-items issue-map)))
 
 (defn get-search-body [query max-results]
   (json/write-str {:jql query :maxResults max-results}))

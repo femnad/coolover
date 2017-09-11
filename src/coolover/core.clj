@@ -45,8 +45,8 @@
      :summary (get-field "summary")
      :created (format-date (get-field "created"))
      :updated (format-date (get-field "updated"))
-     :description (get-field "description")
-     :browse-url (get-browse-url issue-key)}))
+     :browse-url (get-browse-url issue-key)
+     :description (get-field "description")}))
 
 (def stylings {:title :green
                 :summary :yellow
